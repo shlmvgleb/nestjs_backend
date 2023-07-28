@@ -7,11 +7,17 @@ import { ConfigService } from '@nestjs/config';
 import { SmsConfig } from './config/sms.conf';
 import { RedisModule } from '../../redis/redis.module';
 import { ConfigurationModule } from '../config/config.module';
+import { BullModule } from '@nestjs/bull';
+import { QueuesEnum } from '../../utils/enums/queues.enum';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
+import { SmsConsumer } from './sms.consumer';
 
 @Module({
   providers: [
     SmsService,
     SmsApiService,
+    SmsConsumer,
   ],
   imports: [
     JwtModule.registerAsync({
@@ -22,6 +28,13 @@ import { ConfigurationModule } from '../config/config.module';
           secret: config.secret,
         };
       },
+    }),
+    BullModule.registerQueue({
+      name: QueuesEnum.SMS,
+    }),
+    BullBoardModule.forFeature({
+      name: QueuesEnum.SMS,
+      adapter: BullAdapter,
     }),
     RedisModule,
     ConfigurationModule,

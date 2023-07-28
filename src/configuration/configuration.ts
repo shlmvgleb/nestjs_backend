@@ -38,4 +38,7 @@ export default () => ({
     tokenExp: process.env.JWT_SMS_EXP || '30m',
     maxCountOfSmsReq: process.env.MAX_COUNT_OF_SMS_REQ || 3,
   },
+  env: {
+    environments: process.env.NODE_ENV || 'develop',
+  },
 });

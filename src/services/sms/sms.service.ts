@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SmsApiService } from './sms-api/sms.api.service';
-import { formatString } from '../../utils/helpers/format-string';
 import { RedisService } from '../../redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as generateUUIDV4 } from 'uuid';
@@ -11,9 +10,10 @@ import { ISmsPayload } from './types/sms.payload';
 import { ISmsData } from './types/sms.data';
 import { BalanceData } from './types/balance.data';
 import { ConfigurationService } from '../config/configuration.service';
-
-const smsMessage = 'Подтверждение номера телефона. Ваш код: ??';
-const phoneConfirmationCondition = 10;
+import { QueuesEnum } from '../../utils/enums/queues.enum';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { SmsJobPayload } from './types/sms.job.payload';
 
 @Injectable()
 export class SmsService {
@@ -23,6 +23,7 @@ export class SmsService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private customConfigService: ConfigurationService,
+    @InjectQueue(QueuesEnum.SMS) private smsQueue: Queue,
   ) {}
 
   private config = this.configService.get<SmsConfig>('sms');
@@ -35,19 +36,13 @@ export class SmsService {
 
   async sendCodeOnPhoneNumber(phone: string): Promise<ISmsData> {
     const code = this.generateCode();
-    const response = await this.smsApiService.sendMessage(phone, formatString(smsMessage, code));
-    const balance = +response.balance;
-
-    if (balance < phoneConfirmationCondition) {
-      const configEntity = await this.customConfigService.findOneByKeyOrThrow('PHONE_NUMBER_CONFIRMATION');
-      await this.customConfigService.update({
-        id: configEntity.id,
-        value: 'false',
-      });
-    }
-
-    await this.redisService.set('balance', response.balance);
+    const smsJobPayload: SmsJobPayload = {
+      phone: phone,
+      code: code,
+    };
     const uuid = generateUUIDV4();
+
+    await this.smsQueue.add('sendMessage', smsJobPayload);
 
     const payload: ISmsPayload = {
       id: uuid,
