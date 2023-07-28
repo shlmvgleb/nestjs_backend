@@ -14,4 +14,4 @@ RUN yarn run build
 EXPOSE ${PORT}
 
 # Сначала запускаются миграции, потом продакшн сборка
-CMD yarn run migrate && yarn run seed && yarn run start:prod
+CMD yarn run migrate && yarn run start:prod
